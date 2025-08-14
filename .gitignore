@@ -1,0 +1,23 @@
+
+# Jupyter/R
+
+.ipynb_checkpoints/
+
+__pycache__/
+
+.Rhistory
+
+.Rproj.user/
+
+*.RData
+
+
+
+# Data & výstupy (ponecháme jen CSV/obrázky, syrová PDF ne)
+
+data/raw/
+
+models/
+
+logs/
+
