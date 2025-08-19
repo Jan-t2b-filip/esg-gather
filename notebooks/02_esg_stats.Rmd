@@ -1,0 +1,173 @@
+---
+title: "EGS - rychlý přehled"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+```{r packages}
+need <- c("tidyverse","janitor","gt","scales","stringr")
+to_install <- setdiff(need, rownames(installed.packages()))
+if (length(to_install) > 0) {
+  install.packages(to_install, repos = "https://cloud.r-project.org")
+}
+invisible(lapply(need, library, character.only = TRUE))
+```
+
+## načtění dat ##
+```{r data}
+data_dir <- "/storage/brno2/home/filipja2/esg-gather/data/processed"
+csv_path <- file.path(data_dir, "esg_metrics.csv")
+
+raw <- readr::read_csv(csv_path, show_col_types = FALSE) |> janitor::clean_names()
+raw
+```
+
+## tidy ##
+```{r}
+extract_year <- function(x) {
+  m <- stringr::str_match(x, "(20\\d{2})")
+  suppressWarnings(as.integer(m[,2]))
+}
+
+name_map <- c(
+  "ownops_scope1_t"                 = "ownops_scope1_t",
+  "ownops_scope2_location_t"        = "ownops_scope2_location_t",
+  "ownops_scope2_market_t"          = "ownops_scope2_market_t",
+  "ownops_scope2_t"                 = "ownops_scope2_market_t",
+  "ownops_scope3_t"                 = "ownops_scope3_t",
+  "ownops_total_location_t"         = "ownops_total_location_t",
+  "ownops_total_market_t"           = "ownops_total_market_t",
+  "propinv_total_t"                 = "propinv_total_t",
+  "investments_intensity_t_per_eur_mn" = "investments_intensity_t_per_eur_mn"
+)
+
+long <- raw |>
+  mutate(year = extract_year(source_pdf)) |>
+  pivot_longer(cols = -c(source_pdf, year),
+               names_to = "metric", values_to = "value") |>
+  filter(!is.na(value)) |>
+  mutate(
+    metric_std = dplyr::recode(metric, !!!name_map),
+    basis = dplyr::case_when(
+      str_detect(metric_std, "location") ~ "location-based",
+      str_detect(metric_std, "market")   ~ "market-based",
+      TRUE ~ NA_character_
+    ),
+    domain = dplyr::case_when(
+      str_detect(metric_std, "^ownops_")  ~ "own_operations",
+      str_detect(metric_std, "^propinv_") ~ "proprietary_investments",
+      TRUE ~ "other"
+    ),
+    unit_base = if_else(str_detect(metric_std, "intensity"),
+                        "tCO2e per € mn", "tCO2e")
+  )
+
+long
+
+```
+
+
+
+## own operations 2024 ##
+```{r}
+ownops_2024 <- long |>
+  filter(domain == "own_operations", year == 2024) |>
+  arrange(metric_std)
+
+ownops_2024
+```
+
+
+
+## odvozené metriky ##
+```{r}
+own_wide <- ownops_2024 |>
+  select(metric_std, value) |>
+  pivot_wider(
+    names_from = metric_std,
+    values_from = value,
+    values_fn = list(value = ~ mean(as.numeric(.), na.rm = TRUE))
+  )
+
+if (!"ownops_scope2_market_t" %in% names(own_wide) && "ownops_scope2_t" %in% names(own_wide)) {
+  own_wide <- own_wide |> mutate(ownops_scope2_market_t = ownops_scope2_t)
+}
+
+derived <- own_wide |>
+  mutate(
+    s1_plus_s2_market_t = coalesce(ownops_scope1_t, 0) + coalesce(ownops_scope2_market_t, 0),
+    delta_total_loc_vs_mkt_t = coalesce(ownops_total_location_t, NA_real_) - coalesce(ownops_total_market_t, NA_real_),
+    share_s1 = ifelse(!is.na(ownops_total_market_t), ownops_scope1_t / ownops_total_market_t, NA_real_),
+    share_s2 = ifelse(!is.na(ownops_total_market_t), ownops_scope2_market_t / ownops_total_market_t, NA_real_),
+    share_s3 = ifelse(!is.na(ownops_total_market_t), ownops_scope3_t / ownops_total_market_t, NA_real_)
+  ) |>
+  select(s1_plus_s2_market_t, delta_total_loc_vs_mkt_t, share_s1, share_s2, share_s3)
+
+derived |>
+  mutate(across(starts_with("share_"), ~ scales::percent(., accuracy = 0.1))) |>
+  gt::gt() |>
+  gt::fmt_number(columns = c(s1_plus_s2_market_t, delta_total_loc_vs_mkt_t), decimals = 1) |>
+  gt::tab_header(title = "Own operations – odvozené metriky (2024)") |>
+  gt::cols_label(
+    s1_plus_s2_market_t = "S1+S2 (market) [t]",
+    delta_total_loc_vs_mkt_t = "Total (loc - mkt) [t]",
+    share_s1 = "Podíl S1 na Total (mkt)",
+    share_s2 = "Podíl S2 na Total (mkt)",
+    share_s3 = "Podíl S3 na Total (mkt)"
+  )
+```
+
+
+
+## graf: S1 / S2 (Market) / S3 ##
+```{r}
+own_long_for_plot <- ownops_2024 |>
+  filter(metric_std %in% c("ownops_scope1_t","ownops_scope2_market_t","ownops_scope3_t")) |>
+  mutate(metric_plot = recode(as.character(metric_std),
+                              "ownops_scope1_t" = "Scope 1",
+                              "ownops_scope2_market_t" = "Scope 2 (market)",
+                              "ownops_scope3_t" = "Scope 3"))
+
+ggplot(own_long_for_plot, aes(x = metric_plot, y = value)) +
+  geom_col() +
+  labs(title = "Own operations – rozklad emisí (2024)",
+       x = NULL, y = "t CO2e") +
+  theme_minimal()
+
+```
+
+
+## Intenzita (proprietary investments) ##
+```{r}
+long |>
+  filter(metric_std == "investments_intensity_t_per_eur_mn") |>
+  arrange(year) |>
+  gt() |>
+  fmt_number(columns = "value", decimals = 2) |>
+  cols_label(value = "tCO2e/€ mn", source_pdf = "Zdroj", year = "Rok") |>
+  tab_header(title = "Proprietary investments – uhlíková intenzita")
+
+
+out_long <- file.path(data_dir, "esg_long.csv")
+readr::write_csv(long, out_long)
+out_long
+```
+
+
+
+## export long datasetu ##
+
+```{r}
+out_long <- file.path(data_dir, "esg_long.csv")
+readr::write_csv(long, out_long)
+out_long
+
+```
+
+warnings()
+

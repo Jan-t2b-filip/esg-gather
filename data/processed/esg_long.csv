@@ -1,0 +1,10 @@
+source_pdf,year,metric,value,metric_std,basis,domain,unit_base
+en-allianz-group-annual-report-2024.pdf,2024,investments_intensity_t_per_eur_mn,2,investments_intensity_t_per_eur_mn,NA,other,tCO2e per € mn
+en-allianz-group-non-financial-supplement-2024.pdf,2024,propinv_total_t,202,propinv_total_t,NA,proprietary_investments,tCO2e
+en-allianz-group-non-financial-supplement-2024.pdf,2024,ownops_scope1_t,36160.9,ownops_scope1_t,NA,own_operations,tCO2e
+en-allianz-group-non-financial-supplement-2024.pdf,2024,ownops_scope2_location_t,118928.5,ownops_scope2_location_t,location-based,own_operations,tCO2e
+en-allianz-group-non-financial-supplement-2024.pdf,2024,ownops_scope3_t,102629.3,ownops_scope3_t,NA,own_operations,tCO2e
+en-allianz-group-non-financial-supplement-2024.pdf,2024,ownops_scope2_market_t,5947,ownops_scope2_market_t,market-based,own_operations,tCO2e
+en-allianz-group-non-financial-supplement-2024.pdf,2024,ownops_total_location_t,257718.7,ownops_total_location_t,location-based,own_operations,tCO2e
+en-allianz-group-non-financial-supplement-2024.pdf,2024,ownops_total_market_t,144737.2,ownops_total_market_t,market-based,own_operations,tCO2e
+en-allianz-group-non-financial-supplement-2024.pdf,2024,ownops_scope2_t,5947,ownops_scope2_market_t,market-based,own_operations,tCO2e
