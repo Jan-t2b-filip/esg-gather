@@ -21,3 +21,6 @@ models/
 
 logs/
 
+.secrets/
+data/processed/model_out/
+*.joblib
