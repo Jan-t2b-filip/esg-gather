@@ -1,1 +1,1 @@
-# ESG Gather @ MetaCentrum
+# ESG Gather MetaCentrum Project
